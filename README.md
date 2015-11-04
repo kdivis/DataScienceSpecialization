@@ -1,4 +1,6 @@
 # DataScienceSpecialization
 Coursera Johns Hopkins Data Science Specialization Files   
 
-This repo contains my assignment/course project files from the Coursera Data Science specialization. Other files from the specialization (e.g., lecture notes, videos, etc.) can be found in the *courses* repo (forked from Prof. Roger Peng).
+This repo contains my assignment/course project files from the Coursera Data Science specialization. Other files from the specialization (e.g., lecture notes, videos, etc.) can be found in the *courses* repo (forked from Prof. Roger Peng).   
+
+All work was completed in R Studio (using R Markdown files).
