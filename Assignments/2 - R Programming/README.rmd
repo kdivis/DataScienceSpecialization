@@ -1,0 +1,24 @@
+---
+title: "R Programming Assignments"
+author: "K. Divis"
+output: pdf_document
+---
+
+R Programming is the second of nine courses in the Data Science Specialization offered by Johns Hopkins University on Coursera. Part of the requirements for the class were three assignments.   
+
+K. Divis completed the course in June 2015. This folder contains the relevant files for each assignment (outlined below).   
+
+###Assignment 1: Air Pollution   
+Instructions: Assignment1Instructions.pdf   
+Code: pollutantmean.R, complete.R, corr.R   
+Data: specdata   
+
+###Assignment 2: Caching
+Instructions: Assignment2Instructions.pdf   
+Code: Assignment2.R   
+
+###Assignment 3: Hospital Comparison
+Instructions: Assignment3Instructions.pdf   
+Code: best.R, rankhospital.R, rankall.R   
+Data: hopsital-data.csv, outcome-of-care-measures.csv, Hopsital_Revised_Flatfiles.pdf
+

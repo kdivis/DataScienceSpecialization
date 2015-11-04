@@ -1,0 +1,144 @@
+---
+title: "Is an automatic or manual transmission better for MPG?"
+author: "K. Divis"
+date: "August 16, 2015"
+output: pdf_document
+---
+```{r Main Body of Code, results='hide',message=FALSE, warning=FALSE, cache=TRUE, echo=FALSE}
+data(mtcars)
+mtcars$vs <- as.factor(mtcars$vs)
+mtcars$am <- as.factor(mtcars$am)
+
+modFull <- lm(mpg ~ am + cyl + disp + hp + drat + wt + qsec + vs + gear + carb, data=mtcars)
+mod1 <- lm(mpg ~ am + disp + hp + drat + wt + qsec + vs + gear + carb, data=mtcars)
+    ll2 <- anova(modFull,mod1)
+mod2 <- lm(mpg ~ am + disp + hp + drat + wt + qsec + gear + carb, data=mtcars)
+    ll3=anova(mod1,mod2)
+mod3 <- lm(mpg ~ am + disp + hp + drat + wt + qsec + gear, data=mtcars)
+    ll4=anova(mod2,mod3)
+mod4 <- lm(mpg ~ am + disp + hp + drat + wt + qsec, data=mtcars)
+    ll5=anova(mod4,mod3)
+mod5 <- lm(mpg ~ am + disp + hp + wt + qsec, data=mtcars)
+    ll6=anova(mod4,mod5)
+mod6 <- lm(mpg ~ am + hp + wt + qsec, data=mtcars)
+    ll7=anova(mod6,mod5)
+mod7 <- lm(mpg ~ am + wt + qsec, data=mtcars)
+    ll8=anova(mod6,mod7)
+    #Now all are sig predictors
+mod8 <- lm(mpg ~ am + wt, data=mtcars)
+    ll9=anova(mod8,mod7)
+
+#Model 7 Values:
+B0=coef(mod7)[[1]]
+B1=coef(mod7)[[2]]
+B2=coef(mod7)[[3]]
+B3=coef(mod7)[[4]]
+
+B0p=summary(mod7)$coefficients[1,4]
+B1p=summary(mod7)$coefficients[2,4]
+B2p=summary(mod7)$coefficients[3,4]
+B3p=summary(mod7)$coefficients[4,4]
+
+CI=confint(mod7)
+
+aic=AIC(mod7)
+adjR2=summary(mod7)$adj.r.squared
+
+wtAvg=mean(mtcars$wt)
+qsecAvg=mean(mtcars$qsec)
+
+#Residuals/Diagnostics
+library(car)
+mod7vif=vif(mod7)
+mod7vif_sqrt=sqrt(vif(mod7))
+
+library(gvlma)
+gvmodel <- gvlma(mod7)
+summary(gvmodel)
+    
+
+
+```
+###Executive summary
+
+
+The mtcars data was used to answer the question of whether an automatic or manual transmission is better for MPG, quantifying the difference. The model that best fit the data included transmission type, weight of the car, and quarter mile time to predict gas milage. It revealed that manual transmission vehicles get better gas milage than automatic transmission vehicles (a difference of about `r round(B1,2)` mpg). The report below outlines how this conclusion was reached, including exploratory analyses, model fitting/selection procedures, explanation of the best model, and model diagnostics and residuals.
+
+*(This report was completed as part of (and under the guidelines of) the Johns Hopkins Data Science specialization Regression Models class on Coursera.)*
+
+***
+
+
+
+###Exploratory analysis    
+
+
+The mtcars dataset includes data from 32 vehicles (from 1973 or 1974), with values for mpg (miles/US gallon), cyl (number of cylinders), disp (displacement in cu. in.), hp (gross horsepower), drat (rear axle ratio), wt (weight in lb/1000), qsec (quarter mile time), vs (V-engine or straight engine), transmission (automatic or manual), gear (number of forward gears), and carb (number of carburetors).  
+
+Since the questions are about transmission and mpg, Figure 1 (see the appendix) shows the mpg for automatic and manual transmissions, not factoring in the other variables. At first glance, automatic transmissions appear to get fewer mpg than manual transmissions.
+
+It seems reasonable that many of these variables will be related to one another (and thus may pose collinearity problems in model building). In an effort to further explore those relationships, Figure 2 shows the correlations between the variables. As suspected, many of the variables are highly correlated.
+
+
+###Model fitting/selection    
+
+
+*Strategy for model selection:*
+Model fitting and selection was completed using a stepwise approach. The initial model included all the variables (am, cyl, disp, hp, drat, wt, qsec, vs, gear, and carb) as predictors of mpg. Each subsequent model included one less variable and was compared to the previous model using a log likelihood test. If removing that variable did not significantly change the fit of the model, then the subsequent model removed another variable. Which variable was removed was determined by the coefficient beta weights for that variable. The variable that appeared to contribute the least (highest p-value) was removed. 
+
+*Journey through model selection:*
+The initial model included all the variables (am, cyl, disp, hp, drat, wt, qsec, vs, gear, and carb). The second model removed cyl, which did not compromise the model (p = `r round(ll2$Pr[2],3)`). The third mdoel additionally removed vs, which did not compromise the model (p = `r round(ll3$Pr[2],3)`). The forth model additionally removed carb, which did not compromise the model (p = `r round(ll4$Pr[2],3)`). The fifth model additionally removed gear, which did not compromise the model (p = `r round(ll5$Pr[2],3)`). The sixth model additionally removed drat, which did not compromise the model (p = `r round(ll6$Pr[2],3)`). The seventh model additionally removed disp, which did not compromise the model (p = `r round(ll7$Pr[2],3)`). The eighth model additionally removed hp, which did not compromise the model (p = `r round(ll8$Pr[2],3)`). This model looked like it would not need to be modified further. As a check, the nineth model removed qsec, but it did compromise the model (p = `r round(ll9$Pr[2],3)`). Therefore the best model, based on this selection strategy was the model using am, wt, and qsec to predict mpg (Adjusted R Squared = `r round(adjR2, 2)`; AIC = `r round(aic,2)`).
+
+###Best model and results
+
+
+The best model used am, wt, and qsec to predict mpg. Mathematically, it can be written as mpg ~ B0 + B1(am) + B2(wt) + B3(qsec) + error. The beta coefficients for the model are: B0 = `r round(B0,2)` (p = `r round(B0p,3)`, CI = `r round(CI[1,1],2)` to `r round(CI[1,2],2)`), B1 = `r round(B1,2)` (p = `r round(B1p,3)`, CI = `r round(CI[2,1],2)` to `r round(CI[2,2],2)`), B2 = `r round(B2,2)` (p = `r round(B2p,3)`, CI = `r round(CI[3,1],2)` to `r round(CI[3,2],2)`), and B3 = `r round(B3,2)` (p = `r round(B3p,3)`, CI = `r round(CI[4,1],2)` to `r round(CI[4,2],2)`). Based on their respective p-values and confidence intervals, all three of the variables are important. Importantly, the effect of manual vs. automatic transmission is significant (p = `r round(B1p,3)`).
+
+The coefficients can be interpretted as follows: holding wt and qsec constant (i.e., equal to 0), an automatic transmission is expected to get `r round(B0,2)` mpg (B0) and a manual transmission is expected to get `r round(B0+B1,2)` mpg (B0 + B1). The average wt was `r round(wtAvg,2)` half tons and the average qsec was `r round(qsecAvg,2)` seconds. Using those values (rather than zeros), an automatic transimission is expected to get `r round(B0 + B2*wtAvg + B3*qsecAvg,2)` mpg (B0 + B2(mean wt) + B3(mean qsec)) and a manual transimssion is expected to get `r round(B0 + B1 + B2*wtAvg + B3*qsecAvg,2)` mpg (B0 + B1 + B2(mean wt) + B3(mean qsec).
+
+
+###Residual plot and some diagnostics
+
+
+Figure 3 shows residual plots and diagnostics. They do show some deviations from what we would expect from a "perfect" model (e.g., the dip in the regression line on the Residuals vs. Fitted plot), but many aspects look promising (e.g., most of the points fall close to the diagonal in the Normal Q-Q plot, indicating our assumptions of normality may be justified). See the results from the gvlma() function below for further analysis.
+
+One early question was whether collinearity would be an issue with this dataset. Variance inflation factors (VIF) were calculated for all 3 predictors: am = `r round(mod7vif[[1]],2)`, wt = `r round(mod7vif[[2]],2)`, and qsec = `r round(mod7vif[[3]],2)`. A standard test to see whether collinearity is an issue is whether the sqrt(VIF) is greater than 2. This was not the case for any of the predictors in the model, so collinearity does not appear to be a problem in this final model.
+
+I also assessed the assumptions of the linear model using the gvlma() function in the gvlma library. While the skewness (of error distributions), kurtosis (normality of error distibutions), and heteroscedasticity (of errors) assumptions were met, the link function direction test statistic was not (p = .003). It appears this model does not use the best link function for this data, so it should be interpretted with some caution. However, the simplicity of the model and ease of intuitively understanding it provide much benefit.
+
+
+###Answers to questions
+The answers to the questions are not black and white--their exact interpretation depends on what model (and which predictors) are ultimately chosen. However, based on my analyses and the decisions I made when building the model, I came to the following conclusions. In general, manual transmissions get better gas milage than automatic transmissions (a difference of `r round(B1,2)` mpg, p = `r round(B1p,3)`, CI = `r round(CI[2,1],2)` to `r round(CI[2,2],2)`). I found that it was important to adjust for the influence of weight and quarter mile time when evaluating the effect of transmission on gas milage. (Please note that exact values and examples can be found in the "Best Model and Results" section above).
+
+
+
+***
+
+
+
+##Appendix
+
+###Figure 1: MPG by transmission type
+
+```{r Figure 1, message=FALSE, warning=FALSE,echo=FALSE, fig.width=5, fig.height=5}
+attr(mtcars$am,"levels") <- c("Automatic","Manual")
+plot(mpg ~ am, data=mtcars, xlab="Transmission", ylab="MPG",main="MPG by Transmission Type")
+
+```
+
+
+###Figure 2: Correlation Plot
+```{r Figure 2, message=FALSE, warning=FALSE,echo=FALSE, fig.height=6, fig.width=6}
+library(corrplot)
+data(mtcars)
+cc <- cor(mtcars)
+corrplot.mixed(cc, upper = "ellipse", order = "FPC")
+```
+
+    
+###Figure 3: Diagnostic Plots
+```{r Figure3, echo=FALSE, fig.height=8}
+par(mfrow = c(2,2))
+plot(mod7)
+```
+

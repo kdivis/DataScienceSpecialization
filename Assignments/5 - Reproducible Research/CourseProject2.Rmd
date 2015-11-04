@@ -1,0 +1,165 @@
+---
+title: "US Weather Events Historically Most Harmful to Population Health and Economy"
+author: "K. Divis"
+output: pdf_document
+---
+
+###Synopsis
+
+Severe weather events can have a negative impact on both population health and economy. Below, I break down which types of weather events have historically impacted population health and the econony the most. Using data drawn from weather events in the US from 1996-2008, I look at the impact of weather on the population health indices of number of injuries and fatalities and the economic consequence indices of dollars of damage to property and crops. I found that the types of weather events that cause the most economic damage (e.g., floods) are not indentical to those that cause the most population health damage (e.g., heat or tornados).
+
+*Please note that this project was completed as part of and under the guidelines of the Johns Hopkins Data Science specialization Reproducible Research class on Coursera.*
+
+
+***
+###Data Processing
+#####Step 1: Load the data directly from the link provided on the course website.  
+``` {r Load Data, cache=TRUE,message=FALSE,warning=FALSE}
+if(!file.exists("./stormData.csv.bz2")){
+    fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+    download.file(fileURL,destfile="./stormData.csv.bz2")
+}
+
+storm <- read.csv("./stormData.csv.bz2")
+```
+
+#####Step 2: Subset the raw data, including only data from 1996-2008.  
+According to the NOAA (the source of the weather data), only a subset of the events were reported prior to 1996. Since all events are of interest, only data from 1996+ can be used without introducing bias. (See http://www.ncdc.noaa.gov/stormevents/details.jsp).
+
+```{r 1996+ Data,message=FALSE,warning=FALSE,cache=TRUE}
+start96=grep("1996",storm$BGN_DATE)
+storm96=data.frame()
+storm96=storm[start96[1]:dim(storm)[1],]
+```
+
+#####Step 3: Filter the data into 2 separate datasets. 
+One only includes instances where injuries and/or fatalities occurred (health dataset). The other only includes instances where crop damage and/or property damage occurred (economic dataset).  
+
+```{r Split into 2 datasets,message=FALSE,warning=FALSE,cache=TRUE}
+library(dplyr)
+storm96health=filter(storm96, INJURIES>0 | FATALITIES>0)    #Health dataset
+storm96ec=filter(storm96, PROPDMG>0 | CROPDMG>0)            #Economic dataset
+```
+
+#####Step 4: Calculate totals for each event type in health and economic datasets
+"H/h/K/k/M/m/B/b" labels are converted to their appropriate numeric value (e.g., 100) and included in the total sum for that event.
+
+Health dataset
+```{r Health Totals,message=FALSE,warning=FALSE,cache=TRUE}
+#Injuries
+injSums=tapply(storm96health$INJURIES,list(storm96health$EVTYPE),sum,na.rm=TRUE)
+injSumsTotal=0
+for (i in 1:dim(injSums)[1]){injSumsTotal[i]=injSums[[i]]}
+injData=data.frame(row.names(injSums),injSumsTotal)
+names(injData)[1]="Event"
+injData=filter(injData,injData$injSums>0)
+
+#Fatalities
+fatSums=tapply(storm96health$FATALITIES,list(storm96health$EVTYPE),sum,na.rm=TRUE)    
+fatSumsTotal=0
+for (i in 1:dim(fatSums)[1]){fatSumsTotal[i]=fatSums[[i]]}
+fatData=data.frame(row.names(fatSums),fatSumsTotal)
+names(fatData)[1]="Event"
+fatData=filter(fatData,fatSums>0)
+
+#Combined 
+library(plyr)
+healthData=join(injData,fatData)
+```
+
+Economic dataset
+```{r Economic Totals,message=FALSE,warning=FALSE,cache=TRUE}
+propSums=tapply(storm96ec$PROPDMG,list(storm96ec$EVTYPE,storm96ec$PROPDMGEXP),sum,na.rm=TRUE)
+propSums=propSums[,14:19]   #Only used EXP of h/H/k/K/m/M/B
+propSumsTotal=NULL
+for (i in 1:dim(propSums)[1]){
+    propSumsTotal[i]=sum(propSums[i,1]*1000000000,propSums[i,2]*100,propSums[i,3]*100,propSums[i,4]*1000,propSums[i,5]*1000000,propSums[i,6]*1000000,na.rm=TRUE)
+}
+propData=data.frame(row.names(propSums),propSumsTotal)
+names(propData)[1]="Event"
+propData=filter(propData,propSumsTotal>0)   #So now have only events with property damage > 0 (but events haven't been condensed yet)
+
+#Crop Damage
+cropSums=tapply(storm96ec$CROPDMG,list(storm96ec$EVTYPE,storm96ec$CROPDMGEXP),sum,na.rm=TRUE)
+cropSums=cropSums[,5:9] #Only used EXP of h/H/k/K/m/M/B
+cropSumsTotal=NULL
+for (i in 1:dim(cropSums)[1]){
+    cropSumsTotal[i]=sum(cropSums[i,1]*1000000000,cropSums[i,2]*1000,cropSums[i,3]*1000,cropSums[i,4]*1000000,cropSums[i,5]*1000000,na.rm=TRUE)
+}
+cropData=data.frame(row.names(cropSums),cropSumsTotal)
+names(cropData)[1]="Event"
+cropData=filter(cropData,cropSumsTotal>0)
+
+
+#Combined
+ecData=join(propData,cropData)
+```
+
+#####Step 5: Group Events into Larger Categories
+The individual events reported in the original EVTYPE variable were grouped into 27 possible larger categories (e.g., flood, thunderstorm, lightning). Do to the messiness and inconsistancies in the original data, it was necessary to narrow the original EVTYPE options into more uniform, consistent categories. The mapping of those groupings can be found in the Sub-Event and Event columns of the ecData and healthData dataframes below.
+
+```{r Group Events,message=FALSE,warning=FALSE,cache=TRUE}
+labelsHealth=c("Avalanche","Ice","Snow","Snow","Fire","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Cold/Wind Chill","Cold/Wind Chill","Fog","Drought","Wind","Dust Devil/Storm","Dust Devil/Storm","Dust Devil/Storm","Heat","Snow","Cold/Wind Chill","Cold/Wind Chill","Cold/Wind Chill","Winter Weather/Storm","Flood","Flood","Fog","Ice","Ice","Tornado/Funnel Cloud","Ice","Wind","Wind","Wind","Wind","Hail","Surf/Seas","Heat","Heat","Rain","Snow","Snow","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Wind","Hurricane/Typhoon/Tropical Storm","Hurricane/Typhoon/Tropical Storm","Hurricane/Typhoon/Tropical Storm","Ice","Ice","Ice","Landslide","Landslide","Snow","Lightning","Marine","Marine","Marine","Marine","Marine","Winter Weather/Storm","Landslide","Wind","Wind","Other","Winter Weather/Storm","Rip Current","Rip Current","Flood","Surf/Seas","Surf/Seas","Surf/Seas","Hail","Snow","Snow","Snow","Marine","Marine","Wind","Wind","Thunderstorm","Thunderstorm","Coastal Flooding/Erosion/Storm","Tornado/Funnel Cloud","Rain","Hurricane/Typhoon/Tropical Storm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Tsunami","Hurricane/Typhoon/Tropical Storm","Heat","Flood","Heat","Marine","Fire","Fire","Wind","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm")
+healthData=mutate(healthData,LargeEvent=labelsHealth)
+names(healthData)=c("Sub-Event","Injuries","Fatalities","Event")
+
+labelsEc=c("Surf/Seas","Flood","Thunderstorm","Thunderstorm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Avalanche","Coastal Flooding/Erosion/Storm","Snow","Dust Devil/Storm","Snow","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Cold","Cold","Cold","Flood","Cold","Fog","Fire","Rain","Drought","Wind","Dust Devil/Storm","Dust Devil/Storm","Dust Devil/Storm","Coastal Flooding/Erosion/Storm","Heat","Snow","Cold","Cold","Cold","Cold","Flood","Flood","Flood","Flood","Fog","Cold","Ice","Ice","Ice","Fog","Ice","Ice","Ice","Ice","Ice","Tornado/Funnel Cloud","Ice","Ice","Wind","Wind","Wind","Wind","Thunderstorm","Thunderstorm","Thunderstorm","Wind","Wind","Hail","Heat","Rain","Rain","Snow","Snow","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Surf/Seas","Wind","Wind","Wind","Hurricane/Typhoon/Tropical Storm","Hurricane/Typhoon/Tropical Storm","Flood","Ice","Ice","Ice","Snow","Snow","Flood","Flood","Landslide","Landslide","Landslide","Landslide","Snow","Ice","Snow","Snow","Snow","Snow","Lightning","Marine","Marine","Marine","Marine","Marine","Marine","Wind","Winter Weather/Storm","Winter Weather/Storm","Landslide","Landslide","Wind","Wind","Other","Other","Rain","Rip Current","Rip Current","Flood","Flood","Landslide","Surf/Seas","Surf/Seas","Hail","Snow","Snow","Snow","Snow","Snow","Marine","Marine","Wind","Wind","Wind","Wind","Thunderstorm","Coastal Flooding/Erosion/Storm","Coastal Flooding/Erosion/Storm","Tornado/Funnel Cloud","Hurricane/Typhoon/Tropical Storm","Hurricane/Typhoon/Tropical Storm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Thunderstorm","Tsunami","Hurricane/Typhoon/Tropical Storm","Flood","Volcanic Ash","Hurricane/Typhoon/Tropical Storm","Rain","Wind","Wind","Fire","Fire","Wind","Wind","Wind","Wind","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm","Winter Weather/Storm")
+ecData=mutate(ecData,LargeEvent=labelsEc)
+names(ecData)=c("Sub-Event","Property Damage","Crop Damage","Event")
+```
+
+***
+
+###Results
+
+#####Population Health
+The original dataset gives two indices of the impact of severe weather on population health: injuries and fatalities. Figure 1 below shows the top 5 weather events leading to the most injuries or fatalities from 1996 to 2008. Heat events were the most fatal (followed by tornados/funnel clouds, floods, lightning, and rip currents), while tornados/funnel clouds were most likely to lead to injury (followed by floods, heat, thunderstorms, and lightning). How individual events are categorized into larger events likely influences the result of these analyses, but it appears that severe summer weather (e.g., storms leading to tornados, lightning, flooding; or extreme heat) are most detrimental to population health.  
+
+```{r Health Figure,message=FALSE,warning=FALSE, fig.height=10, fig.width=8,fig.cap="Figure 1"}
+library(reshape2)
+library(plyr)
+hMelt <- melt(healthData,id="Event",measure.vars=c("Injuries","Fatalities"))
+names(hMelt)=c("Event","Source","Count")
+
+hMelt2 <- ddply(hMelt,.(Event,Source),summarize,TotalCount=sum(Count,na.rm=TRUE))
+hMelt3 <- arrange(hMelt2,Source,desc(TotalCount))
+
+#Get top 5 events in each category
+hTopInj <- hMelt3[1:5,]; hTopFat <- hMelt3[26:30,]
+
+par(mfcol = c(2,1))
+barplot(hTopInj$TotalCount,names.arg=hTopInj$Event,cex.names=.75,axis.lty=1,col="cyan",
+        ylab="Number of People Injured",xlab="Weather Event", main="Top 5 Injury-Inducing Weather Events (1996-2008)")
+barplot(hTopFat$TotalCount,names.arg=hTopFat$Event,cex.names=.75,axis.lty=1,col="red",
+        ylab="Number of Fatalities",xlab="Weather Event", main="Top 5 Fatal Weather Events (1996-2008)")
+```
+   
+*(Above) Figure 1: Weather events most harmful to population health*  
+
+#####Economic Consequences
+The original dataset gives two indices of the economic consequences of severe weather: property damage and crop damage. Figure 2 below shows the top 5 weather events leading to the most property or crop damage from 1996-2008. Floods and hurricanes/typhoons/tropical storms caused the most damage to both property and crops. Marine, tornado/funnel cloud and hail events also led to a lot of property damge; hail, cold, and ice also led to substantial crop damage. Weather events that led to moisture damage (e.g., flooding or hurricanes) appeared to cause the greatest negative economic consequences.
+
+```{r Economic Figure,message=FALSE,warning=FALSE,, fig.height=10, fig.width=8}
+ecMelt <- melt(ecData,id="Event", measure.vars=c("Property Damage","Crop Damage"))
+names(ecMelt)=c("Event","Source","Cost")
+
+ecMelt2 <- ddply(ecMelt,.(Event,Source),summarize,TotalCost=sum(Cost,na.rm=TRUE))
+ecMelt3 <- arrange(ecMelt2,Source,desc(TotalCost)) 
+
+#Get top 5 events in each category
+ecTopProp <- ecMelt3[1:5,]; ecTopCrop <- ecMelt3[28:32,]
+
+par(mfcol = c(2,1))
+barplot(ecTopProp$TotalCost/1000000000,names.arg=ecTopProp$Event,cex.names=.75,axis.lty=1,col="salmon",
+        ylab="Damage in Billions of Dollars",xlab="Weather Event", main="Top 5 Weather Events Most Damaging to Property (1996-2008)")
+barplot(ecTopCrop$TotalCost/1000000000,names.arg=ecTopCrop$Event,cex.names=.75,axis.lty=1,col="green",
+        ylab="Damage in Billions of Dollars",xlab="Weather Event", main="Top 5 Weather Events Most Damaging to Crops (1996-2008)")
+```
+   
+*(Above) Figure 2: Weather events with worst economic consequences*  
+
+Overall, the weather events that cause population health problems and those that cause negative economic consequences do not perfectly overlap. While flooding seemed to be a problem for both, heat had a larger relative impact on population health than economic consequences. Events in the family of hurricanes were more likely to lead relatively larger economic consequences than population health detriments (perhaps due to advanced warning and evacuation).
+
+
+
+
